@@ -10,6 +10,7 @@ import PlaylistDetail from "@/components/playlist/PlaylistDetail";
 import EditDetailsModal from "@/components/playlist/EditDetailsModal";
 import QueuePanel from "@/components/layout/QueuePanel";
 import ArtistDetail from "@/components/artist/ArtistDetail";
+import OnboardingModal from "@/components/ui/OnboardingModal";
 import { Home, Search, Library, Plus, Music } from "lucide-react";
 
 export default function Page() {
@@ -98,6 +99,9 @@ export default function Page() {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-black text-white select-none">
       {/* Top Header */}
       <Header />
+
+      {/* Onboarding Preference Overlay */}
+      <OnboardingModal />
 
       {/* Main Container */}
       <div className="flex flex-1 w-full overflow-hidden">

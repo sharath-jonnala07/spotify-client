@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useSpotify, Song } from "@/context/SpotifyContext";
 import { Play, Pause, Clock, Check, MoreHorizontal } from "lucide-react";
 import ContextMenu from "../ui/ContextMenu";
+import SafeImage from "../ui/SafeImage";
 
 interface ArtistDetailProps {
   artistName: string;
@@ -228,9 +229,10 @@ export default function ArtistDetail({ artistName }: ArtistDetailProps) {
                     {/* Cover art + Title */}
                     <td className="py-2">
                       <div className="flex items-center gap-3">
-                        <img
+                        <SafeImage
                           src={song.coverUrl}
                           alt={song.title}
+                          fallbackTitle={song.title}
                           className="h-10 w-10 object-cover rounded"
                         />
                         <p className={`text-[14px] font-bold truncate ${isTrackActive ? "text-[#1ed760]" : "text-white"}`}>

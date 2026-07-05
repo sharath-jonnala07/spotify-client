@@ -6,7 +6,7 @@ import { Bell, ArrowDownCircle, Search, X } from "lucide-react";
 import Image from "next/image";
 
 export default function Header() {
-  const { currentView, setView, searchQuery, setSearchQuery } = useSpotify();
+  const { currentView, setView, searchQuery, setSearchQuery, resetOnboarding } = useSpotify();
   const [showProfileMenu, setShowProfileMenu] = useState<boolean>(false);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
 
@@ -37,13 +37,10 @@ export default function Header() {
         className="flex items-center cursor-pointer" 
         onClick={() => setView("home")}
       >
-        <Image
+        <img
           src="/spotify-logo.svg"
           alt="Spotify"
-          width={100}
-          height={32}
-          priority
-          className="h-8 w-auto filter brightness-0 invert" // Make logo white like the production web player
+          className="h-8 filter brightness-0 invert select-none object-contain"
         />
       </div>
 
@@ -199,6 +196,15 @@ export default function Header() {
                 className="flex w-full px-3 py-2 text-left text-[13px] font-semibold text-white hover:bg-white/10 rounded-sm"
               >
                 Profile
+              </button>
+              <button 
+                onClick={() => {
+                  resetOnboarding();
+                  setShowProfileMenu(false);
+                }}
+                className="flex w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1ed760] hover:bg-white/10 rounded-sm"
+              >
+                Retake Onboarding
               </button>
               <button 
                 onClick={() => alert("Settings page")}

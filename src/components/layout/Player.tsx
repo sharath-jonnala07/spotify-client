@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useSpotify, Song } from "@/context/SpotifyContext";
 import { Heart, Maximize2, Minimize2, Music, X } from "lucide-react";
+import SafeImage from "../ui/SafeImage";
 import {
   PlayIcon,
   PauseIcon,
@@ -198,9 +199,10 @@ export default function Player() {
           <>
             {/* Album Cover */}
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded shadow-md">
-              <img
+              <SafeImage
                 src={activeTrack.coverUrl}
                 alt={activeTrack.album}
+                fallbackTitle={activeTrack.title}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -310,11 +312,11 @@ export default function Player() {
             onMouseLeave={() => setIsHoveringProgress(false)}
             className="relative flex flex-1 h-3 cursor-pointer items-center group"
           >
-            <div className="w-full h-1 rounded-full bg-[#2a2a2a]">
+            <div className={`w-full rounded-full bg-[#2a2a2a] transition-all duration-100 ${isHoveringProgress ? "h-1.5" : "h-1"}`}>
               {/* Fill Track */}
               <div
                 className={`h-full rounded-full transition-colors duration-100 ${
-                  isHoveringProgress ? "bg-[#1ed760]" : "bg-white"
+                  isHoveringProgress ? "bg-[#1ed760]" : "bg-white/80"
                 }`}
                 style={{ width: `${progressPercent}%` }}
               />
@@ -322,14 +324,15 @@ export default function Player() {
             {/* Grab handle dot */}
             {isHoveringProgress && (
               <div
-                className="absolute h-3 w-3 rounded-full bg-white shadow-sm"
+                className="absolute h-3.5 w-3.5 rounded-full bg-white shadow-md transition-all duration-100 hover:scale-110"
                 style={{
-                  left: `calc(${progressPercent}% - 6px)`,
-                  top: "calc(50% - 6px)"
+                  left: `calc(${progressPercent}% - 7px)`,
+                  top: "calc(50% - 7px)"
                 }}
               />
             )}
           </div>
+
           
           <span className="w-8 text-left font-normal">{formatTime(duration)}</span>
         </div>
@@ -378,11 +381,11 @@ export default function Player() {
             onMouseLeave={() => setIsHoveringVolume(false)}
             className="relative w-[93px] h-3 cursor-pointer flex items-center group"
           >
-            <div className="w-full h-1 rounded-full bg-[#2a2a2a]">
+            <div className={`w-full rounded-full bg-[#2a2a2a] transition-all duration-100 ${isHoveringVolume ? "h-1.5" : "h-1"}`}>
               {/* Fill Track */}
               <div
                 className={`h-full rounded-full transition-colors duration-100 ${
-                  isHoveringVolume ? "bg-[#1ed760]" : "bg-white"
+                  isHoveringVolume ? "bg-[#1ed760]" : "bg-white/80"
                 }`}
                 style={{ width: `${volumePercent}%` }}
               />
@@ -390,10 +393,10 @@ export default function Player() {
             {/* Grab handle dot */}
             {isHoveringVolume && (
               <div
-                className="absolute h-3 w-3 rounded-full bg-white shadow-sm"
+                className="absolute h-3.5 w-3.5 rounded-full bg-white shadow-md transition-all duration-100 hover:scale-110"
                 style={{
-                  left: `calc(${volumePercent}% - 6px)`,
-                  top: "calc(50% - 6px)"
+                  left: `calc(${volumePercent}% - 7px)`,
+                  top: "calc(50% - 7px)"
                 }}
               />
             )}
@@ -428,9 +431,10 @@ export default function Player() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img
+              <SafeImage
                 src={activeTrack.coverUrl}
                 alt={activeTrack.album}
+                fallbackTitle={activeTrack.title}
                 className="h-12 w-12 object-cover rounded shadow-md"
               />
               <div>

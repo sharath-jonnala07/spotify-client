@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useSpotify, Song, Playlist } from "@/context/SpotifyContext";
 import { Music, Play, Pause, Search, MoreHorizontal, Clock, Plus, Trash2, X } from "lucide-react";
 import EditDetailsModal from "./EditDetailsModal";
+import SafeImage from "../ui/SafeImage";
 import ContextMenu from "../ui/ContextMenu";
 
 interface PlaylistDetailProps {
@@ -281,9 +282,10 @@ export default function PlaylistDetail({ playlistId, onEditPlaylist }: PlaylistD
                     {/* Cover art + Title & Artist */}
                     <td className="py-2">
                       <div className="flex items-center gap-3">
-                        <img
+                        <SafeImage
                           src={song.coverUrl}
                           alt={song.title}
+                          fallbackTitle={song.title}
                           className="h-10 w-10 object-cover rounded"
                         />
                         <div className="min-w-0">
@@ -378,9 +380,10 @@ export default function PlaylistDetail({ playlistId, onEditPlaylist }: PlaylistD
                   className="flex items-center justify-between p-2 rounded hover:bg-white/5 group transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
+                    <SafeImage
                       src={song.coverUrl}
                       alt={song.title}
+                      fallbackTitle={song.title}
                       className="h-10 w-10 object-cover rounded shrink-0 shadow-sm"
                     />
                     <div className="min-w-0">

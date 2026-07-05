@@ -3,6 +3,7 @@
 import React from "react";
 import { useSpotify, Song } from "@/context/SpotifyContext";
 import { Play, Pause, Trash2, X, Music } from "lucide-react";
+import SafeImage from "../ui/SafeImage";
 
 export default function QueuePanel() {
   const {
@@ -48,9 +49,10 @@ export default function QueuePanel() {
           {nowPlaying ? (
             <div className="flex items-center gap-3 rounded-md bg-[#1f1f1f] p-3 shadow-md border border-white/5 group relative">
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#282828]">
-                <img
+                <SafeImage
                   src={nowPlaying.coverUrl}
                   alt={nowPlaying.title}
+                  fallbackTitle={nowPlaying.title}
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -100,9 +102,10 @@ export default function QueuePanel() {
                     <div className="flex items-center gap-3 min-w-0">
                       {/* Image / Hover Play Button */}
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-[#282828] shadow-sm">
-                        <img
+                        <SafeImage
                           src={song.coverUrl}
                           alt={song.title}
+                          fallbackTitle={song.title}
                           className="h-full w-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 items-center justify-center hidden group-hover:flex">
