@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useSpotify, Story, RoutineTimePeriod } from "@/context/SpotifyContext";
 import { X, Plus, Trash2, Sparkles, Clock, Calendar, Check, Compass, HelpCircle } from "lucide-react";
 
@@ -16,9 +16,14 @@ export default function HorizonPanel() {
   const [appetite, setAppetite] = useState<number>(userPreferences?.discovery_appetite ?? 50);
   const [breadth, setBreadth] = useState<number>(userPreferences?.exploration_depth_width ?? 50);
 
+  // Scroll ref
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Form states
-  const [newStoryText, setNewStoryText] = useState<string>("");
+  const [newStoryText, setNewStoryText] = useState<string>(" ");
   const [addingStory, setAddingStory] = useState<boolean>(false);
+  const [newStoryRoutineActive, setNewStoryRoutineActive] = useState<boolean>(false);
+  const [newStoryRoutines, setNewStoryRoutines] = useState<RoutineTimePeriod[]>([]);
   const [activeStoryRoutineId, setActiveStoryRoutineId] = useState<string | null>(null);
 
   // Routine period form states
@@ -27,6 +32,18 @@ export default function HorizonPanel() {
   const [selectedDays, setSelectedDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
 
   const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Auto-scroll to bottom when story creation form expands
+  useEffect(() => {
+    if (addingStory && scrollContainerRef.current) {
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }, 100);
+    }
+  }, [addingStory, newStoryRoutineActive, newStoryRoutines.length]);
 
   // Dials saving
   const handleDialChange = (type: "appetite" | "breadth", val: number) => {
@@ -50,13 +67,17 @@ export default function HorizonPanel() {
       id: `story-${Date.now()}`,
       text: newStoryText.trim(),
       active: true,
-      routineActive: false,
-      routines: []
+      routineActive: newStoryRoutineActive,
+      routines: newStoryRoutineActive ? [...newStoryRoutines] : []
     };
 
     const currentStories = userPreferences?.stories || [];
     updateStories([...currentStories, newStory]);
+    
+    // Reset states
     setNewStoryText("");
+    setNewStoryRoutineActive(false);
+    setNewStoryRoutines([]);
     setAddingStory(false);
   };
 
@@ -154,7 +175,7 @@ export default function HorizonPanel() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar flex flex-col gap-6">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar flex flex-col gap-6">
         
         {/* Exploration Dials Section */}
         <div className="flex flex-col gap-4">
@@ -247,18 +268,145 @@ export default function HorizonPanel() {
 
           {/* Inline Add Story Form */}
           {addingStory && (
-            <form onSubmit={handleAddStory} className="flex flex-col gap-2.5 p-3.5 rounded-xl bg-[#1f1f1f] border border-[#1ed760]/20 animate-slide-down">
-              <textarea
-                placeholder="E.g., Cracking Stanford finance case studies, morning run at the track, or dinner party with friends..."
-                value={newStoryText}
-                onChange={(e) => setNewStoryText(e.target.value)}
-                rows={3}
-                className="w-full p-2.5 rounded-lg bg-[#121212] border border-transparent focus:border-[#1ed760]/30 outline-none text-[12px] text-white placeholder-white/20 resize-none font-medium"
-              />
-              <div className="flex justify-end gap-2">
+            <form onSubmit={handleAddStory} className="flex flex-col gap-3.5 p-4 rounded-xl bg-[#1f1f1f] border border-[#1ed760]/20 animate-slide-down">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold text-[#b3b3b3]">Describe your story/context</span>
+                <textarea
+                  placeholder="E.g., Cracking Stanford finance case studies, morning run at the track, or dinner party with friends..."
+                  value={newStoryText}
+                  onChange={(e) => setNewStoryText(e.target.value)}
+                  rows={3}
+                  className="w-full p-2.5 rounded-lg bg-[#121212] border border-transparent focus:border-[#1ed760]/30 outline-none text-[12px] text-white placeholder-white/20 resize-none font-medium leading-relaxed"
+                />
+              </div>
+
+              {/* Routine toggle inside creation card */}
+              <div className="flex items-center justify-between bg-[#121212]/50 p-2.5 rounded-lg border border-white/5">
+                <div className="flex flex-col">
+                  <span className="text-[12px] font-bold text-white">Enable Routine Schedule</span>
+                  <span className="text-[9px] text-[#7c7c7c]">Trigger automatically based on time & day</span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => { setAddingStory(false); setNewStoryText(""); }}
+                  onClick={() => setNewStoryRoutineActive(!newStoryRoutineActive)}
+                  className={`w-8 h-4.5 rounded-full p-0.5 transition duration-200 cursor-pointer ${
+                    newStoryRoutineActive ? "bg-[#1ed760]" : "bg-[#3e3e3e]"
+                  }`}
+                >
+                  <div className={`h-3.5 w-3.5 rounded-full bg-black shadow transition duration-200 transform ${
+                    newStoryRoutineActive ? "translate-x-3.5" : "translate-x-0"
+                  }`} />
+                </button>
+              </div>
+
+              {/* Routines builder within creation card */}
+              {newStoryRoutineActive && (
+                <div className="flex flex-col gap-3 border-t border-white/5 pt-3">
+                  {/* Current routines slots list */}
+                  {newStoryRoutines.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-wider">Scheduled Slots</span>
+                      {newStoryRoutines.map((period) => (
+                        <div key={period.id} className="flex items-center justify-between bg-[#121212] p-2 rounded-lg border border-white/5 text-[11px]">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 text-white font-semibold">
+                              <Clock size={11} className="text-[#1ed760]" />
+                              <span>{period.startTime} - {period.endTime}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[#b3b3b3]">
+                              <Calendar size={11} />
+                              <span>{period.days.join(", ")}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setNewStoryRoutines(prev => prev.filter(r => r.id !== period.id))}
+                            className="p-1 text-[#b3b3b3] hover:text-red-400 transition"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add period workspace */}
+                  <div className="flex flex-col gap-2.5 bg-[#121212]/30 p-2.5 rounded-lg border border-white/5">
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-[#b3b3b3]">Start Time</span>
+                        <input
+                          type="time"
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="bg-[#121212] border border-white/10 p-1 rounded text-white outline-none focus:border-[#1ed760]/30"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-[#b3b3b3]">End Time</span>
+                        <input
+                          type="time"
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="bg-[#121212] border border-white/10 p-1 rounded text-white outline-none focus:border-[#1ed760]/30"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-[#b3b3b3]">Select Days</span>
+                      <div className="flex flex-wrap gap-1">
+                        {daysOfWeek.map((day) => {
+                          const isSel = selectedDays.includes(day);
+                          return (
+                            <button
+                              type="button"
+                              key={day}
+                              onClick={() => toggleDaySelection(day)}
+                              className={`h-5 w-7 text-[8px] font-bold rounded transition flex items-center justify-center ${
+                                isSel 
+                                  ? "bg-[#1ed760] text-black font-extrabold" 
+                                  : "bg-[#121212] text-[#b3b3b3] border border-white/5"
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedDays.length === 0) return;
+                        const newPeriod: RoutineTimePeriod = {
+                          id: `period-${Date.now()}`,
+                          startTime,
+                          endTime,
+                          days: [...selectedDays]
+                        };
+                        setNewStoryRoutines(prev => [...prev, newPeriod]);
+                        setSelectedDays(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+                      }}
+                      disabled={selectedDays.length === 0}
+                      className="w-full py-1 bg-white/10 text-white text-[11px] font-bold rounded hover:bg-white/15 transition cursor-pointer"
+                    >
+                      + Add Time Period
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 border-t border-white/5 pt-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingStory(false);
+                    setNewStoryText("");
+                    setNewStoryRoutineActive(false);
+                    setNewStoryRoutines([]);
+                  }}
                   className="rounded-full px-3 py-1.5 text-[11px] font-bold text-[#b3b3b3] hover:text-white border border-transparent transition cursor-pointer"
                 >
                   Cancel
