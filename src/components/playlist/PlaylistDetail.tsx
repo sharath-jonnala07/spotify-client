@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useSpotify, Song, Playlist } from "@/context/SpotifyContext";
-import { Music, Play, Pause, Search, MoreHorizontal, Clock, Plus, Trash2, X } from "lucide-react";
+import { Music, Play, Pause, Search, MoreHorizontal, Clock, Plus, Trash2, X, Sparkles, RefreshCw } from "lucide-react";
 import EditDetailsModal from "./EditDetailsModal";
 import SafeImage from "../ui/SafeImage";
 import ContextMenu from "../ui/ContextMenu";
@@ -27,10 +27,46 @@ export default function PlaylistDetail({ playlistId, onEditPlaylist }: PlaylistD
     setView
   } = useSpotify();
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   const [localSearch, setLocalSearch] = useState<string>("");
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; song: Song } | null>(null);
+
+  // Horizon Suggestions state
+  const [horizonSuggestions, setHorizonSuggestions] = useState<Song[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
+
+  const fetchHorizonSuggestions = async () => {
+    if (playlistId === "liked" || !playlistId) return;
+    setLoadingSuggestions(true);
+    try {
+      const res = await fetch(`${API_BASE}/playlists/${playlistId}/horizon-suggestions`);
+      if (res.ok) {
+        const data = await res.json();
+        setHorizonSuggestions(data.map((apiSong: any) => ({
+          id: apiSong.id,
+          title: apiSong.title,
+          artist: apiSong.artist,
+          album: apiSong.album,
+          duration: apiSong.duration,
+          durationSeconds: 200,
+          coverUrl: apiSong.image_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60",
+          audioUrl: "", 
+          reason: apiSong.reason,
+          preview_offset: apiSong.preview_offset
+        })));
+      }
+    } catch (e) {
+      console.error("Failed to fetch Horizon suggestions", e);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchHorizonSuggestions();
+  }, [playlistId]);
 
   const handleContextMenu = (e: React.MouseEvent, song: Song) => {
     e.preventDefault();
@@ -413,6 +449,119 @@ export default function PlaylistDetail({ playlistId, onEditPlaylist }: PlaylistD
               ))
             ) : (
               <p className="text-[13px] text-[#b3b3b3] py-2">No matching song suggestions found.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Horizon AI Suggestions section - Only for custom playlists, not liked songs */}
+      {playlistId !== "liked" && (
+        <div className="mx-6 mt-12 p-6 rounded-xl bg-gradient-to-br from-[#122218] to-[#121212] border border-[#1ed760]/15 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-[#1ed760]">
+              <Sparkles size={18} className="animate-pulse" />
+              <h3 className="text-[18px] font-bold text-white tracking-tight">Horizon AI Discovery Suggestions</h3>
+            </div>
+            <button
+              onClick={fetchHorizonSuggestions}
+              disabled={loadingSuggestions}
+              className="p-1.5 text-[#b3b3b3] hover:text-white hover:bg-white/5 rounded-full transition cursor-pointer"
+              title="Refresh AI suggestions"
+            >
+              <RefreshCw size={16} className={`${loadingSuggestions ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+          <p className="text-[12px] text-[#b3b3b3] mb-6 leading-relaxed">
+            Unfamiliar tracks handpicked by the Horizon engine matching your active context routines and appetite settings. Click the play button to preview from its peak chorus hook!
+          </p>
+
+          <div className="flex flex-col gap-3">
+            {loadingSuggestions ? (
+              <div className="flex flex-col gap-2 py-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-12 w-full bg-[#181818] rounded-md animate-pulse" />
+                ))}
+              </div>
+            ) : horizonSuggestions.length > 0 ? (
+              horizonSuggestions.map((song) => {
+                const isCurrentActive = activeTrack?.id === song.id;
+                const isCurrentPlaying = isCurrentActive && isPlaying;
+                return (
+                  <div
+                    key={`horizon-sugg-${song.id}`}
+                    className="flex items-center justify-between p-3 rounded-lg bg-[#181818]/60 hover:bg-[#181818] border border-white/5 hover:border-white/10 transition group"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* Play Preview Hook trigger */}
+                      <div className="relative h-11 w-11 shrink-0 rounded overflow-hidden shadow bg-[#282828]">
+                        <SafeImage
+                          src={song.coverUrl}
+                          alt={song.title}
+                          fallbackTitle={song.title}
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          onClick={() => playTrack(song, [song], song.preview_offset || 0)}
+                          className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-150 text-[#1ed760]"
+                        >
+                          {isCurrentPlaying ? (
+                            <Pause size={16} fill="currentColor" />
+                          ) : (
+                            <Play size={16} fill="currentColor" className="ml-0.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="min-w-0 flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-bold text-white truncate">{song.title}</p>
+                          {song.reason && (
+                            <span className="text-[9px] bg-[#1ed760]/10 border border-[#1ed760]/20 text-[#1ed760] font-bold px-1.5 py-0.5 rounded tracking-wide shrink-0">
+                              {song.reason}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[12px] text-[#b3b3b3] truncate">{song.artist}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Preview Badge */}
+                      {song.preview_offset !== undefined && (
+                        <span className="hidden sm:inline text-[10px] text-[#7c7c7c] border border-white/5 px-2 py-0.5 rounded font-medium">
+                          Chorus @ {Math.floor(song.preview_offset)}s
+                        </span>
+                      )}
+
+                      {/* Add Song */}
+                      <button
+                        onClick={() => {
+                          addSongToPlaylist(playlist.id, song);
+                          setHorizonSuggestions(prev => prev.filter(s => s.id !== song.id));
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 border border-white/10 hover:border-white hover:bg-white/10 text-white transition cursor-pointer"
+                        title="Add to playlist"
+                      >
+                        <Plus size={16} />
+                      </button>
+
+                      {/* Reject Song */}
+                      <button
+                        onClick={() => setHorizonSuggestions(prev => prev.filter(s => s.id !== song.id))}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 border border-white/10 hover:border-red-400/50 hover:bg-red-500/10 text-[#b3b3b3] hover:text-red-400 transition cursor-pointer"
+                        title="Dismiss suggestion"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-6 text-[#7c7c7c] border border-dashed border-white/5 rounded-xl">
+                <p className="text-[12px]">All suggested tracks added or dismissed.</p>
+                <p className="text-[10px] mt-1">Tap the refresh icon to scan for more discoveries.</p>
+              </div>
             )}
           </div>
         </div>

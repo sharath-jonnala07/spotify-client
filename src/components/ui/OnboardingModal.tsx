@@ -55,12 +55,16 @@ export default function OnboardingModal() {
   // Step 4: Favorite Artists
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
   
-  // Step 5: Suggested Songs Selection
+  // Step 5: Dials (Comfort vs Discovery, Depth vs Width)
+  const [discoveryAppetite, setDiscoveryAppetite] = useState<number>(50);
+  const [explorationDepthWidth, setExplorationDepthWidth] = useState<number>(50);
+
+  // Step 6: Suggested Songs Selection
   const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
   const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   
-  // Step 6: Custom text notes
+  // Step 7: Custom text notes
   const [customNotes, setCustomNotes] = useState<string>("");
 
   // Clean up audio previews on step change or unmount
@@ -186,7 +190,7 @@ export default function OnboardingModal() {
   };
 
   const handleNext = () => {
-    if (step < 6) {
+    if (step < 7) {
       setStep(prev => prev + 1);
     } else {
       // 1. Process batch likes for selected seed songs
@@ -207,7 +211,10 @@ export default function OnboardingModal() {
         selectedArtists, 
         customVibe || "", 
         audioFocus.join(","), 
-        customNotes
+        customNotes,
+        discoveryAppetite,
+        explorationDepthWidth,
+        []
       );
     }
   };
@@ -219,7 +226,7 @@ export default function OnboardingModal() {
   };
 
   const handleSkip = () => {
-    savePreferences(["english", "hindi", "telugu"], "relax", [], "", "vibe", "");
+    savePreferences(["english", "hindi", "telugu"], "relax", [], "", "vibe", "", 50, 50, []);
   };
 
   if (isOnboardingComplete) return null;
@@ -252,8 +259,9 @@ export default function OnboardingModal() {
             {step === 2 && "What is your listening vibe?"}
             {step === 3 && "What is your primary audio focus?"}
             {step === 4 && "Who are your favorite artists?"}
-            {step === 5 && "Pick a few seed songs to get started"}
-            {step === 6 && "Any custom personalization notes?"}
+            {step === 5 && "Calibrate your Exploration appetite"}
+            {step === 6 && "Pick a few seed songs to get started"}
+            {step === 7 && "Any custom personalization notes?"}
           </h2>
           
           <p className="text-[14px] text-[#b3b3b3] mt-2 leading-relaxed">
@@ -261,19 +269,20 @@ export default function OnboardingModal() {
             {step === 2 && "Configure your listening vibe. You can also write a custom vibe if ours don't match."}
             {step === 3 && "Choose the musical layer that connects with you the most to profile recommendation speeds."}
             {step === 4 && "Select your favorite artists. This directly seeds your personalized recommendation feed."}
-            {step === 5 && "Based on your selections, we recommend starting with these tracks. Check the ones you like!"}
-            {step === 6 && "Write any instructions (e.g. 'I hate metal', 'Only play acoustic covers'). We'll factor it into our algorithm."}
+            {step === 5 && "Tune your default exploration dials. This sets how adventurous our recommendations are. You can always change this in settings later."}
+            {step === 6 && "Based on your selections, we recommend starting with these tracks. Check the ones you like!"}
+            {step === 7 && "Write any instructions (e.g. 'I hate metal', 'Only play acoustic covers'). We'll factor it into our algorithm."}
           </p>
         </div>
 
-        {/* Progress Bar (6 steps) */}
+        {/* Progress Bar (7 steps) */}
         <div className="w-full bg-[#202020] h-[5px] rounded-full mb-8 relative">
           <div 
             className="bg-gradient-to-r from-[#1ed760] to-emerald-400 h-full rounded-full transition-all duration-300 shadow-[0_0_12px_#1ed760]"
-            style={{ width: `${(step / 6) * 100}%` }}
+            style={{ width: `${(step / 7) * 100}%` }}
           />
           <span className="absolute right-0 -top-6 text-[11px] font-bold text-[#b3b3b3]">
-            Step {step} of 6
+            Step {step} of 7
           </span>
         </div>
 
@@ -502,8 +511,57 @@ export default function OnboardingModal() {
             </div>
           )}
 
-          {/* STEP 5: SUGGESTED SEED SONGS (PREVIEW + CHECKBOX) */}
+          {/* STEP 5: EXPLORATION BUDGET DIALS */}
           {step === 5 && (
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-2 p-5 rounded-xl bg-[#181818] border border-white/5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] font-bold text-white">Discovery Appetite</span>
+                  <span className="text-[13px] font-extrabold text-[#1ed760]">{discoveryAppetite}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={discoveryAppetite}
+                  onChange={(e) => setDiscoveryAppetite(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-[#2a2a2a] rounded-lg appearance-none cursor-pointer accent-[#1ed760]"
+                />
+                <div className="flex justify-between text-[11px] text-[#7c7c7c] font-semibold mt-1">
+                  <span>Comfort Zone (Familiar)</span>
+                  <span>New Horizons (Curious)</span>
+                </div>
+                <p className="text-[11px] text-[#b3b3b3] mt-2 leading-relaxed opacity-85">
+                  Discovery appetite calibrates whether the AI recommends songs you already know/liked or fresh, adventurous tracks from unfamiliar artists.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 p-5 rounded-xl bg-[#181818] border border-white/5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] font-bold text-white">Sonic Breadth</span>
+                  <span className="text-[13px] font-extrabold text-[#1ed760]">{explorationDepthWidth}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={explorationDepthWidth}
+                  onChange={(e) => setExplorationDepthWidth(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-[#2a2a2a] rounded-lg appearance-none cursor-pointer accent-[#1ed760]"
+                />
+                <div className="flex justify-between text-[11px] text-[#7c7c7c] font-semibold mt-1">
+                  <span>Sonic Niche (Depth)</span>
+                  <span>Eclectic Range (Width)</span>
+                </div>
+                <p className="text-[11px] text-[#b3b3b3] mt-2 leading-relaxed opacity-85">
+                  Sonic breadth decides whether suggestions stay strictly within your preferred vibes/genres, or mix in wider, unexpected styles and rhythms.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 6: SUGGESTED SEED SONGS (PREVIEW + CHECKBOX) */}
+          {step === 6 && (
             <div className="flex flex-col gap-3">
               {suggestedSongs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-[#b3b3b3]">
@@ -571,8 +629,8 @@ export default function OnboardingModal() {
             </div>
           )}
 
-          {/* STEP 6: CUSTOM PERSONALIZATION NOTES */}
-          {step === 6 && (
+          {/* STEP 7: CUSTOM PERSONALIZATION NOTES */}
+          {step === 7 && (
             <div className="flex flex-col gap-4">
               <label className="text-[13px] font-bold text-[#b3b3b3] uppercase tracking-wider">
                 Custom personalization instructions:
@@ -611,7 +669,7 @@ export default function OnboardingModal() {
             onClick={handleNext}
             className="flex items-center gap-1.5 rounded-full bg-[#1ed760] text-black px-6 py-2.5 text-[13px] font-bold hover:scale-104 active:scale-98 transition duration-150 cursor-pointer shadow-md hover:bg-[#1fdf64]"
           >
-            {step === 6 ? "Complete Activation" : "Continue"}
+            {step === 7 ? "Complete Activation" : "Continue"}
             <ArrowRight size={15} />
           </button>
         </div>

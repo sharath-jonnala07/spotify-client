@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useSpotify, Song } from "@/context/SpotifyContext";
-import { Heart, Maximize2, Minimize2, Music, X } from "lucide-react";
+import { Heart, Maximize2, Minimize2, Music, X, Sparkles, Sliders } from "lucide-react";
 import SafeImage from "../ui/SafeImage";
 import {
   PlayIcon,
@@ -45,7 +45,11 @@ export default function Player() {
     toggleShuffle,
     toggleRepeat,
     likedSongs,
-    likeTrackToggle
+    likeTrackToggle,
+    showHorizon,
+    toggleHorizon,
+    previewActive,
+    userPreferences
   } = useSpotify();
 
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -208,9 +212,16 @@ export default function Player() {
             </div>
             {/* Title & Artist */}
             <div className="min-w-0">
-              <h5 className="text-[14px] font-bold text-white hover:underline cursor-pointer truncate">
-                {activeTrack.title}
-              </h5>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h5 className="text-[14px] font-bold text-white hover:underline cursor-pointer truncate">
+                  {activeTrack.title}
+                </h5>
+                {previewActive && (
+                  <span className="bg-[#1ed760]/20 text-[#1ed760] border border-[#1ed760]/30 text-[9px] font-bold px-1.5 py-0.5 rounded-full tracking-wide animate-pulse shrink-0">
+                    Hook Preview
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-[#b3b3b3] hover:underline hover:text-white cursor-pointer truncate mt-0.5 font-normal">
                 {activeTrack.artist}
               </p>
@@ -361,6 +372,19 @@ export default function Player() {
           title="Queue"
         >
           <QueueIcon size={16} />
+        </button>
+
+        <button 
+          onClick={toggleHorizon}
+          className={`hover:text-white transition duration-150 relative ${
+            showHorizon ? "text-[#1ed760]" : ""
+          }`}
+          title="Horizon AI Personalization"
+        >
+          <Sparkles size={16} className={`${showHorizon ? "animate-pulse" : ""}`} />
+          {userPreferences?.stories?.some(s => s.active) && (
+            <span className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-[#1ed760] animate-pulse" />
+          )}
         </button>
 
         {/* Volume Slider Section */}

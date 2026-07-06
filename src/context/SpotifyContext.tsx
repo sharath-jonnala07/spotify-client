@@ -12,6 +12,8 @@ export interface Song {
   durationSeconds: number;
   coverUrl: string;
   audioUrl: string;
+  reason?: string;
+  preview_offset?: number;
 }
 
 export interface Playlist {
@@ -21,6 +23,21 @@ export interface Playlist {
   songs: Song[];
   isPublic: boolean;
   creator: string;
+}
+
+export interface RoutineTimePeriod {
+  id: string;
+  startTime: string; // "HH:MM"
+  endTime: string; // "HH:MM"
+  days: string[]; // e.g. ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+}
+
+export interface Story {
+  id: string;
+  text: string;
+  active: boolean;
+  routineActive: boolean;
+  routines: RoutineTimePeriod[];
 }
 
 interface SpotifyContextType {
@@ -52,8 +69,14 @@ interface SpotifyContextType {
     custom_vibe?: string;
     audio_focus?: string;
     custom_notes?: string;
+    discovery_appetite?: number;
+    exploration_depth_width?: number;
+    stories?: Story[];
   };
   isOnboardingComplete: boolean;
+  showHorizon: boolean;
+  aiCommentary: string | null;
+  previewActive: boolean; // Tells if playing a chorus hook preview
   
   // Actions
   setView: (view: string) => void;
@@ -63,13 +86,14 @@ interface SpotifyContextType {
   updatePlaylist: (id: string, name: string, description: string) => void;
   addSongToPlaylist: (playlistId: string, song: Song) => void;
   removeSongFromPlaylist: (playlistId: string, songId: string) => void;
-  playTrack: (track: Song, newQueue?: Song[]) => void;
+  playTrack: (track: Song, newQueue?: Song[], startOffset?: number) => void;
   togglePlay: () => void;
   setVolumeLevel: (level: number) => void;
   seekTo: (seconds: number) => void;
   likeTrackToggle: (song: Song) => void;
   removeFromHistory: (songId: string) => void;
   toggleQueue: () => void;
+  toggleHorizon: () => void;
   addToQueue: (song: Song) => void;
   removeFromQueue: (songId: string) => void;
   clearQueue: () => void;
@@ -84,9 +108,14 @@ interface SpotifyContextType {
     artists: string[],
     custom_vibe?: string,
     audio_focus?: string,
-    custom_notes?: string
+    custom_notes?: string,
+    discovery_appetite?: number,
+    exploration_depth_width?: number,
+    stories?: Story[]
   ) => Promise<void>;
   resetOnboarding: () => Promise<void>;
+  updateDials: (appetite: number, breadth: number) => Promise<void>;
+  updateStories: (stories: Story[]) => Promise<void>;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -328,7 +357,9 @@ const mapSongFromApi = (apiSong: any): Song => {
     duration: apiSong.duration,
     durationSeconds: durationSeconds,
     coverUrl: apiSong.image_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=60",
-    audioUrl: "" // Stream resolved dynamically
+    audioUrl: "", // Stream resolved dynamically
+    reason: apiSong.reason || undefined,
+    preview_offset: apiSong.preview_offset || undefined
   };
 };
 
@@ -355,14 +386,21 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
 
   // Onboarding & Personalization States
   const [podcasts, setPodcasts] = useState<Song[]>([]);
-  const [userPreferences, setUserPreferences] = useState<{ languages: string[]; vibe: string; artists: string[] }>({
+  const [userPreferences, setUserPreferences] = useState<SpotifyContextType["userPreferences"]>({
     languages: [],
     vibe: "",
-    artists: []
+    artists: [],
+    discovery_appetite: 50,
+    exploration_depth_width: 50,
+    stories: []
   });
   const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean>(true); // Hydrated on mount
+  const [showHorizon, setShowHorizon] = useState<boolean>(false);
+  const [aiCommentary, setAiCommentary] = useState<string | null>(null);
+  const [previewActive, setPreviewActive] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const startOffsetRef = useRef<number | null>(null);
 
   const queueRef = useRef<Song[]>([]);
   const currentQueueIndexRef = useRef<number>(-1);
@@ -380,7 +418,19 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { activeTrackRef.current = activeTrack; }, [activeTrack]);
 
   // Queue actions
-  const toggleQueue = () => setShowQueue((prev) => !prev);
+  const toggleQueue = () => {
+    setShowQueue((prev) => !prev);
+    if (!showQueue) {
+      setShowHorizon(false);
+    }
+  };
+
+  const toggleHorizon = () => {
+    setShowHorizon((prev) => !prev);
+    if (!showHorizon) {
+      setShowQueue(false);
+    }
+  };
   
   const addToQueue = (song: Song) => {
     setQueue((prev) => {
@@ -484,6 +534,11 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     const handleLoadedMetadata = () => {
       if (audioRef.current) {
         setDuration(Math.floor(audioRef.current.duration));
+        if (startOffsetRef.current !== null && startOffsetRef.current !== undefined) {
+          audioRef.current.currentTime = startOffsetRef.current;
+          setProgress(startOffsetRef.current);
+          startOffsetRef.current = null; // reset
+        }
       }
     };
 
@@ -571,16 +626,24 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       }
       
       // 4. Fetch recommendations
-      const rRes = await fetch(`${API_BASE}/recommendations/`);
+      const now = new Date();
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const localDay = days[now.getDay()];
+      const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+      const rRes = await fetch(`${API_BASE}/recommendations/?local_time=${localTime}&local_day=${localDay}`);
       if (rRes.ok) {
         const data = await rRes.json();
-        if (data && data.length > 0) {
-          setRecommendedSongs(data.map(mapSongFromApi));
+        if (data && data.tracks && data.tracks.length > 0) {
+          setRecommendedSongs(data.tracks.map(mapSongFromApi));
+          setAiCommentary(data.ai_commentary);
         } else {
           setRecommendedSongs(MOCK_SONG_DATABASE.slice(5, 11));
+          setAiCommentary(null);
         }
       } else {
         setRecommendedSongs(MOCK_SONG_DATABASE.slice(5, 11));
+        setAiCommentary(null);
       }
 
       // 5. Fetch trending songs
@@ -718,10 +781,17 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchRecs = async () => {
       try {
-        const rRes = await fetch(`${API_BASE}/recommendations/`);
+        const now = new Date();
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const localDay = days[now.getDay()];
+        const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+        const rRes = await fetch(`${API_BASE}/recommendations/?local_time=${localTime}&local_day=${localDay}`);
         if (rRes.ok) {
           const data = await rRes.json();
-          setRecommendedSongs(data.map(mapSongFromApi));
+          if (data && data.tracks) {
+            setRecommendedSongs(data.tracks.map(mapSongFromApi));
+            setAiCommentary(data.ai_commentary);
+          }
         }
       } catch (e) {}
     };
@@ -876,9 +946,12 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("spotify_playlists", JSON.stringify(updatedPlaylists));
   };
 
-  const playTrack = async (track: Song, newQueue?: Song[]) => {
+  const playTrack = async (track: Song, newQueue?: Song[], startOffset?: number) => {
     if (!audioRef.current) return;
     
+    startOffsetRef.current = startOffset !== undefined && startOffset !== null ? startOffset : null;
+    setPreviewActive(startOffset !== undefined && startOffset !== null);
+
     // Abort previous fetch resolution if active
     if (activeFetchControllerRef.current) {
       activeFetchControllerRef.current.abort();
@@ -1034,7 +1107,10 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     artists: string[],
     custom_vibe?: string,
     audio_focus?: string,
-    custom_notes?: string
+    custom_notes?: string,
+    discovery_appetite?: number,
+    exploration_depth_width?: number,
+    stories?: Story[]
   ) => {
     const prefs = { 
       languages, 
@@ -1042,7 +1118,10 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       artists,
       custom_vibe: custom_vibe || "",
       audio_focus: audio_focus || "vibe",
-      custom_notes: custom_notes || ""
+      custom_notes: custom_notes || "",
+      discovery_appetite: discovery_appetite !== undefined ? discovery_appetite : (userPreferences.discovery_appetite || 50),
+      exploration_depth_width: exploration_depth_width !== undefined ? exploration_depth_width : (userPreferences.exploration_depth_width || 50),
+      stories: stories !== undefined ? stories : (userPreferences.stories || [])
     };
     setUserPreferences(prefs);
     setIsOnboardingComplete(true);
@@ -1056,10 +1135,17 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(prefs)
       });
       // Fetch recommendations again to match new preferences
-      const rRes = await fetch(`${API_BASE}/recommendations/`);
+      const now = new Date();
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const localDay = days[now.getDay()];
+      const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const rRes = await fetch(`${API_BASE}/recommendations/?local_time=${localTime}&local_day=${localDay}`);
       if (rRes.ok) {
         const data = await rRes.json();
-        setRecommendedSongs(data.map(mapSongFromApi));
+        if (data && data.tracks) {
+          setRecommendedSongs(data.tracks.map(mapSongFromApi));
+          setAiCommentary(data.ai_commentary);
+        }
       }
     } catch (e) {
       console.warn("Could not sync preferences with server, stored locally.", e);
@@ -1073,12 +1159,16 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       artists: [],
       custom_vibe: "",
       audio_focus: "vibe",
-      custom_notes: ""
+      custom_notes: "",
+      discovery_appetite: 50,
+      exploration_depth_width: 50,
+      stories: []
     };
     setUserPreferences(clearedPrefs);
     setIsOnboardingComplete(false);
     localStorage.removeItem("spotify_onboarding_complete");
     localStorage.removeItem("spotify_user_preferences");
+    setAiCommentary(null);
 
     try {
       await fetch(`${API_BASE}/tracks/preferences`, {
@@ -1090,10 +1180,75 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       const rRes = await fetch(`${API_BASE}/recommendations/`);
       if (rRes.ok) {
         const data = await rRes.json();
-        setRecommendedSongs(data.map(mapSongFromApi));
+        if (data && data.tracks) {
+          setRecommendedSongs(data.tracks.map(mapSongFromApi));
+        }
       }
     } catch (e) {
       console.warn("Could not clear preferences on server.", e);
+    }
+  };
+
+  const updateDials = async (appetite: number, breadth: number) => {
+    const updatedPrefs = {
+      ...userPreferences,
+      discovery_appetite: appetite,
+      exploration_depth_width: breadth
+    };
+    setUserPreferences(updatedPrefs);
+    localStorage.setItem("spotify_user_preferences", JSON.stringify(updatedPrefs));
+
+    try {
+      await fetch(`${API_BASE}/tracks/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPrefs)
+      });
+      const now = new Date();
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const localDay = days[now.getDay()];
+      const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const rRes = await fetch(`${API_BASE}/recommendations/?local_time=${localTime}&local_day=${localDay}`);
+      if (rRes.ok) {
+        const data = await rRes.json();
+        if (data && data.tracks) {
+          setRecommendedSongs(data.tracks.map(mapSongFromApi));
+          setAiCommentary(data.ai_commentary);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not sync dials to server", e);
+    }
+  };
+
+  const updateStories = async (stories: Story[]) => {
+    const updatedPrefs = {
+      ...userPreferences,
+      stories: stories
+    };
+    setUserPreferences(updatedPrefs);
+    localStorage.setItem("spotify_user_preferences", JSON.stringify(updatedPrefs));
+
+    try {
+      await fetch(`${API_BASE}/tracks/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPrefs)
+      });
+      const now = new Date();
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const localDay = days[now.getDay()];
+      const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const rRes = await fetch(`${API_BASE}/recommendations/?local_time=${localTime}&local_day=${localDay}`);
+      if (rRes.ok) {
+        const data = await rRes.json();
+        if (data && data.tracks) {
+          setRecommendedSongs(data.tracks.map(mapSongFromApi));
+          setAiCommentary(data.ai_commentary);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not sync stories to server", e);
     }
   };
 
@@ -1122,6 +1277,9 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
           podcasts,
           userPreferences,
           isOnboardingComplete,
+          showHorizon,
+          aiCommentary,
+          previewActive,
           setView,
           setSearchQuery,
           createPlaylist,
@@ -1136,6 +1294,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
           likeTrackToggle,
           removeFromHistory,
           toggleQueue,
+          toggleHorizon,
           addToQueue,
           removeFromQueue,
           clearQueue,
@@ -1145,7 +1304,9 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
           toggleShuffle,
           toggleRepeat,
           savePreferences,
-          resetOnboarding
+          resetOnboarding,
+          updateDials,
+          updateStories
         }}
       >
         {children}

@@ -9,12 +9,13 @@ import HomeFeed from "@/components/layout/HomeFeed";
 import PlaylistDetail from "@/components/playlist/PlaylistDetail";
 import EditDetailsModal from "@/components/playlist/EditDetailsModal";
 import QueuePanel from "@/components/layout/QueuePanel";
+import HorizonPanel from "@/components/layout/HorizonPanel";
 import ArtistDetail from "@/components/artist/ArtistDetail";
 import OnboardingModal from "@/components/ui/OnboardingModal";
 import { Home, Search, Library, Plus, Music } from "lucide-react";
 
 export default function Page() {
-  const { currentView, setView, playlists, createPlaylist, updatePlaylist, showQueue } = useSpotify();
+  const { currentView, setView, playlists, createPlaylist, updatePlaylist, showQueue, showHorizon } = useSpotify();
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
 
   // Helper to render the primary main viewport
@@ -119,6 +120,13 @@ export default function Page() {
         {showQueue && (
           <div className="hidden md:block md:mr-2 md:mb-2 md:rounded-lg overflow-hidden">
             <QueuePanel />
+          </div>
+        )}
+
+        {/* Right Sidebar Horizon Personalization Panel - Hidden on mobile (<768px) */}
+        {showHorizon && (
+          <div className="hidden md:block md:mr-2 md:mb-2 md:rounded-lg overflow-hidden">
+            <HorizonPanel />
           </div>
         )}
       </div>

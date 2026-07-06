@@ -19,7 +19,8 @@ export default function HomeFeed() {
     searchQuery,
     songDatabase,
     podcasts,
-    userPreferences
+    userPreferences,
+    aiCommentary
   } = useSpotify();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; song: Song; showRemoveFromHistory?: boolean } | null>(null);
@@ -415,6 +416,27 @@ export default function HomeFeed() {
           Podcasts
         </button>
       </div>
+ 
+      {/* AI DJ Commentary Banner */}
+      {showMusic && aiCommentary && (
+        <div className="mb-8 animate-fade-in p-6 rounded-xl bg-gradient-to-r from-[#122e1e] via-[#121814] to-[#121212] border border-[#1db954]/25 shadow-xl relative overflow-hidden group">
+          {/* Pulsing indicator */}
+          <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-[#1db954]/10 border border-[#1ed760]/30 rounded-full px-2 py-0.5">
+            <span className="h-2 w-2 rounded-full bg-[#1ed760] animate-ping" />
+            <span className="h-2 w-2 rounded-full bg-[#1ed760] absolute" />
+            <span className="text-[10px] font-bold text-[#1ed760] uppercase tracking-wider">AI DJ Active</span>
+          </div>
+          <div className="flex flex-col gap-2 max-w-[85%]">
+            <p className="text-[11px] font-bold text-[#1ed760] uppercase tracking-widest">Horizon Commentary</p>
+            <p className="text-[16px] sm:text-[18px] font-bold text-white tracking-tight leading-relaxed italic">
+              &ldquo;{aiCommentary}&rdquo;
+            </p>
+            <p className="text-[11px] text-[#b3b3b3] mt-1">
+              Adjust your Exploration appetite and active routines at any time in the Horizon sidebar.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* MUSIC SHELVES */}
       {showMusic && (
